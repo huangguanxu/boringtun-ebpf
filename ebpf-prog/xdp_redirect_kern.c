@@ -6,7 +6,7 @@
 #include <bpf/bpf_endian.h>
 
 #define SEC(NAME) __attribute__((section(NAME), used))
-static unsigned REDIRECT_IFACE_IDX = 12;
+static unsigned REDIRECT_IFACE_IDX = 21;
 
 SEC("xdp_redirect")
 int xdp_redirect_func(struct xdp_md *ctx)
@@ -22,10 +22,11 @@ int xdp_redirect_func(struct xdp_md *ctx)
                 return XDP_DROP;
         }
 
-        if ((eth_hdr->h_proto != bpf_htons(ETH_P_IP)) || (ip_hdr->protocol != 0x11)) {
+        //if ((eth_hdr->h_proto != bpf_htons(ETH_P_IP)) || (ip_hdr->protocol != bpf_htons(0x11))) 
+	if (eth_hdr->h_proto != bpf_htons(ETH_P_IP)) {
                 return XDP_PASS;
         } else {
-                bpf_xdp_adjust_head(ctx, ethhdr_off + iphdr_off);
+                bpf_xdp_adjust_head(ctx, ethhdr_off);
         }
 
         return bpf_redirect(REDIRECT_IFACE_IDX, 0);
