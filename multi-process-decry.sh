@@ -91,6 +91,7 @@ function configure_wg() {
         key=$(cat ./key/publickey${i})
 	wg set wg0 peer $key allowed-ips 192.0.$((0 + $i)).$((2 + $i))/32,8.0.0.0/24,192.168.0.0/16,4.0.0.0/24 endpoint 192.168.3.2:$((51820 + $i))
         route add -host 8.0.0.$((1 + $i)) dev ens785f0
+	ip neigh add 8.0.0.$((1 + $i)) lladdr b4:96:91:b7:6b:c9 dev ens785f0 nud perm
     done
 }
 
