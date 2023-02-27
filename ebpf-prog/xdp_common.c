@@ -305,6 +305,10 @@ static void gen_eth_hdr_data(struct packet_info *packet)
         memcpy(eth_hdr->h_source, packet->src_mac, ETH_ALEN);
         eth_hdr->h_proto = htons(ETH_P_IP);
 
+        for (int i = 0; i < ETH_ALEN; i ++) {
+                printf("eth_hdr->dest[%d] = %x, eth_hdr->src[%d] = %x\n", i, eth_hdr->h_dest[i], i, eth_hdr->h_source[i]);
+        }
+
         /* IP header */
         ip_hdr->version = IPVERSION;
         ip_hdr->ihl = 0x5; /* 20 byte header */
@@ -314,18 +318,20 @@ static void gen_eth_hdr_data(struct packet_info *packet)
         ip_hdr->frag_off = 0;
         ip_hdr->ttl = IPDEFTTL;
         ip_hdr->protocol = IPPROTO_UDP;
-        ip_hdr->saddr = inet_addr("192.168.3.1");;
-        ip_hdr->daddr = inet_addr("192.168.3.2");;
-        //ip_hdr->saddr = htonl(packet->src_ip);
-        //ip_hdr->daddr = htonl(packet->dst_ip);
+        //ip_hdr->saddr = inet_addr("192.168.3.1");;
+        //ip_hdr->daddr = inet_addr("192.168.3.2");;
+        ip_hdr->saddr = htonl(packet->src_ip);
+        ip_hdr->daddr = htonl(packet->dst_ip);
 
         /* IP header checksum */
         ip_hdr->check = 0;
         ip_hdr->check = ip_fast_csum((const void *)ip_hdr, ip_hdr->ihl);
 
         /* UDP header */
-        udp_hdr->source = htons(packet->src_port);
-        udp_hdr->dest = htons(packet->dst_port);
+        udp_hdr->source = packet->src_port;
+        udp_hdr->dest = packet->dst_port
+        //udp_hdr->source = htons(packet->src_port);
+        //udp_hdr->dest = htons(packet->dst_port);
         udp_hdr->len = htons(packet->packet_len + sizeof(struct udphdr));
 
         /* UDP header checksum */
@@ -333,7 +339,7 @@ static void gen_eth_hdr_data(struct packet_info *packet)
         udp_hdr->check = udp_csum(ip_hdr->saddr, ip_hdr->daddr, packet->packet_len + UDP_HDR_SIZE,
                                   IPPROTO_UDP, (unsigned short *)udp_hdr);
 
-        //printf("src_mac = %x, dst_mac = %x\n", eth_hdr->h_source, eth_hdr->h_dest);
+        printf("src_mac = %x, dst_mac = %x\n", eth_hdr->h_source, eth_hdr->h_dest);
         printf("src_mac = %x, dst_mac = %x\n", packet->src_mac, packet->dst_mac);
         printf("src_ip = %d, dst_ip = %d\n", ip_hdr->saddr, ip_hdr->daddr);
         printf("src_port = %d, dst_port = %d\n", udp_hdr->source, udp_hdr->dest);
@@ -368,16 +374,16 @@ static struct xsk_umem_info *xdp_configure_umem(void *buffer, unsigned long size
 
         umem = calloc(1, sizeof(*umem));
         if (!umem) {
-                printf("Error when allocate memory for umem.\n");
-                exit(EXIT_FAILURE);
-        }
+		printf("Error when allocate memory for umem.\n");
+		exit(EXIT_FAILURE);
+	}
 
         ret = xsk_umem__create(&umem->umem, buffer, size, &umem->fq, &umem->cq,
                                &cfg);
         if (ret) {
-                printf("Error when create umem.\n");
-                exit(EXIT_FAILURE);
-        } else {
+		printf("Error when create umem.\n");
+		exit(EXIT_FAILURE);
+	} else {
                 printf("Create umem successfully.\n");
         }
 
@@ -450,12 +456,12 @@ static struct xsk_socket_info *xdp_configure_socket(const char *iface_name, int 
         ret = xsk_socket__create(&xsk->xsk, iface_name, queue_id, umem->umem,
                                  rxr, txr, &cfg);
         if (ret) {
-                printf("Error when create xsk socket.\n");
-                exit(EXIT_FAILURE);
-        } else {
+		printf("Error when create xsk socket.\n");
+		exit(EXIT_FAILURE);
+	} else {
                 printf("Create XDP socket successfully.\n");
         }
-
+        
         return xsk;
 }
 
@@ -479,32 +485,33 @@ static void xdp_send_packet(struct xsk_socket_info *xsk, struct packet_info *pac
         gen_eth_hdr_data(packet);
         gen_eth_frame(umem, tx_desc->addr, packet);
 
-        xsk_ring_prod__submit(&xsk->tx, 1);
+        //xsk_ring_prod__submit(&xsk->tx, 1);
 }
 
 int main() {
-        struct xsk_umem_info *umem;
-        bool rx = false, tx = true;
-        char bufs[1024];
-        int i, ret;
-        struct xsk_socket_info *xdp_sock;
-        struct packet_info *packet;
+	struct xsk_umem_info *umem;
+	bool rx = false, tx = true;
+	char bufs[1024];
+	int i, ret;
+	struct xsk_socket_info *xdp_sock;
+	struct packet_info *packet;
 
-        umem = xdp_create_umem(2048, 1024);
-        xdp_sock = xdp_configure_socket("ens785f1", 23, umem, rx, tx);
+	umem = xdp_create_umem(2048, 1024);
+	xdp_sock = xdp_configure_socket("ens785f1", 23, umem, rx, tx);
 
-        memset(bufs, 0, sizeof(bufs));
-        packet->data = &bufs;
-        memcpy(packet->src_mac, "\xb4\x96\x91\xd9\xdb\x11", ETH_ALEN);
-        memcpy(packet->dst_mac, "\xb4\x96\x91\xd5\xbf\x49", ETH_ALEN);
-        packet->src_ip = 0xc0a80301;
-        packet->dst_ip = 0xc0a80302;
-        packet->src_port = 0x1f98;
-        packet->dst_port = 0x1f98;
+	memset(bufs, 0, sizeof(bufs));
+	packet->data = &bufs;
+        packet->packet_len = 970;
+	memcpy(packet->src_mac, "\xb4\x96\x91\xd9\xdb\x11", ETH_ALEN);
+	memcpy(packet->dst_mac, "\xb4\x96\x91\xd5\xbf\x49", ETH_ALEN);
+	packet->src_ip = 0xc0a80301;
+	packet->dst_ip = 0xc0a80302;
+	packet->src_port = 0x1f98;
+	packet->dst_port = 0x1f98;
 
         printf("Start to send packet.\n");
-        for (i = 0; i < 1; i ++) {
-                xdp_send_packet(xdp_sock, packet, umem);
-        }
-        return 0;
+	for (i = 0; i < 1; i ++) {
+		xdp_send_packet(xdp_sock, packet, umem);
+	}
+	return 0;
 }
