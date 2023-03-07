@@ -3,6 +3,8 @@
 if [ "$#" -eq 0 ]; then
     echo "Usage: [options]"
     echo "--cpu <str>             Bind irqs to these CPUs, by default is all core."
+    echo "--process <num>         Define how many process."
+    echo "--genkey                Generate private & public key."
     exit 3
 fi
 
